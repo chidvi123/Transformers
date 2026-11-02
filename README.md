@@ -78,6 +78,13 @@ The original paper uses six Encoder layers and six Decoder layers.
 | Model dimension (`d_model`) | 512 |
 | FFN hidden dimension | 2048 |
 
+
+## Original Transformer Architecture
+
+![Transformer Architecture](https://media.geeksforgeeks.org/wp-content/uploads/20251004125140134507/transformers.webp)
+
+Source: [GeeksforGeeks - Architecture and Working of Transformers](https://www.geeksforgeeks.org/deep-learning/architecture-and-working-of-transformers-in-deep-learning/)
+
 ### Complete architecture diagram
 
 ```mermaid
