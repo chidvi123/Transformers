@@ -1,39 +1,39 @@
 # Transformer Architecture – Complete Learning Notes
 
-> A detailed guide to understanding the original Encoder–Decoder Transformer architecture, its internal components, attention mechanisms, training process, and inference.
+A detailed conceptual guide to the original Encoder–Decoder Transformer architecture, covering embeddings, positional encoding, attention mechanisms, Encoder and Decoder blocks, training, inference, and autoregressive generation.
 
 ---
 
 ## Table of Contents
 
-1. [Introduction to Transformers](#1-introduction-to-transformers)
-2. [Overall Transformer Architecture](#2-overall-transformer-architecture)
-3. [Input Embeddings and Positional Encoding](#3-input-embeddings-and-positional-encoding)
-4. [Encoder Architecture](#4-encoder-architecture)
-5. [Self-Attention Mechanism](#5-self-attention-mechanism)
-6. [Query, Key and Value](#6-query-key-and-value)
-7. [Scaled Dot-Product Attention](#7-scaled-dot-product-attention)
-8. [Multi-Head Attention](#8-multi-head-attention)
-9. [Add & Layer Normalization](#9-add--layer-normalization)
-10. [Feed Forward Network](#10-feed-forward-network)
-11. [Decoder Architecture](#11-decoder-architecture)
-12. [Masked Multi-Head Self-Attention](#12-masked-multi-head-self-attention)
-13. [Cross-Attention](#13-cross-attention)
-14. [Encoder vs Decoder](#14-encoder-vs-decoder)
-15. [Training vs Inference](#15-training-vs-inference)
-16. [Autoregressive Text Generation](#16-autoregressive-text-generation)
-17. [Linear Layer and Softmax](#17-linear-layer-and-softmax)
-18. [Complete Translation Example](#18-complete-translation-example)
-19. [Important Dimensions and Shapes](#19-important-dimensions-and-shapes)
-20. [Final Revision Summary](#20-final-revision-summary)
+1. Introduction to Transformers
+2. Overall Transformer Architecture
+3. Tokenization, Embeddings and Positional Encoding
+4. Encoder Architecture
+5. Self-Attention Mechanism
+6. Query, Key and Value
+7. Scaled Dot-Product Attention
+8. Multi-Head Attention
+9. Residual Connections and Layer Normalization
+10. Feed Forward Network
+11. Decoder Architecture
+12. Masked Multi-Head Self-Attention
+13. Cross-Attention
+14. Encoder vs Decoder
+15. Training vs Inference
+16. Autoregressive Text Generation
+17. Linear Layer and Softmax
+18. Complete Translation Example
+19. Important Dimensions and Shapes
+20. Important Formulas – Quick Revision
 
 ---
 
 # 1. Introduction to Transformers
 
-The Transformer is a deep learning architecture introduced in the 2017 research paper **"Attention Is All You Need"** by Vaswani et al.
+The Transformer is a deep learning architecture introduced in the 2017 research paper **Attention Is All You Need** by Vaswani et al.
 
-It was designed to process sequential data, particularly natural language, using attention mechanisms instead of recurrent processing.
+It was designed to process sequential data, particularly natural language, using attention mechanisms rather than recurrent processing.
 
 ### Why were Transformers introduced?
 
@@ -42,18 +42,18 @@ Before Transformers, architectures like RNNs and LSTMs were commonly used for se
 However, they had some limitations:
 
 - Sequential processing made training slower.
-- Long-range dependencies were difficult to capture.
+- Capturing long-range dependencies was difficult.
 - Information from earlier tokens could gradually become difficult to retain.
 - Parallel processing was limited.
 
 Transformers address these challenges using attention mechanisms.
 
-### Advantages of Transformers
+### Advantages
 
-1. **Parallel processing:** Multiple tokens can be processed simultaneously during training.
-2. **Long-range dependencies:** Attention helps capture relationships between distant tokens.
-3. **Contextual understanding:** A token's representation can incorporate information from other tokens.
-4. **Scalability:** The architecture can be stacked into multiple layers.
+- **Parallel processing:** Multiple tokens can be processed simultaneously during training.
+- **Long-range dependencies:** Attention helps capture relationships between distant tokens.
+- **Contextual understanding:** A token's representation incorporates information from other relevant tokens.
+- **Scalability:** Multiple Encoder and Decoder layers can be stacked.
 
 ---
 
@@ -61,61 +61,84 @@ Transformers address these challenges using attention mechanisms.
 
 The original Transformer follows an **Encoder–Decoder architecture**.
 
-![Original Transformer Architecture](https://jalammar.github.io/images/t/Transformer_encoder_decoder.png)
+The architecture has two major components:
 
-The architecture contains two major components:
+- **Encoder:** Understands the source sentence.
+- **Decoder:** Generates the target sentence using the Encoder's output and previously generated target tokens.
 
-### Encoder
-- Receives the source sentence.
-- Understands relationships between tokens.
-- Produces contextual representations for every input token.
-
-### Decoder
-- Receives previously generated target tokens.
-- Uses information from the Encoder.
-- Generates the target sentence one token at a time during inference.
+The original paper uses six Encoder layers and six Decoder layers.
 
 ### Original Transformer configuration
 
-| Component | Number of layers |
+| Component | Configuration |
 |---|---:|
-| Encoder | 6 |
-| Decoder | 6 |
+| Encoder layers | 6 |
+| Decoder layers | 6 |
 | Attention heads | 8 |
 | Model dimension (`d_model`) | 512 |
-| Feed Forward hidden dimension | 2048 |
+| FFN hidden dimension | 2048 |
 
-**Important:** Six Encoder/Decoder layers do not mean six input or output tokens. They represent the depth of the network.
+### Complete architecture diagram
+
+```mermaid
+flowchart TB
+    subgraph ENCODER["ENCODER"]
+        A["Source Sentence"] --> B["Tokenization"]
+        B --> C["Embedding + Positional Encoding"]
+        C --> D["Encoder Layer 1"]
+        D --> E["Encoder Layer 2"]
+        E --> F["..."]
+        F --> G["Encoder Layer 6"]
+        G --> H["Final Encoder Representations"]
+    end
+
+    subgraph DECODER["DECODER"]
+        I["Target Tokens / BOS"] --> J["Embedding + Positional Encoding"]
+        J --> K["Masked Multi-Head Self-Attention"]
+        K --> L["Add & Norm"]
+        L --> M["Cross-Attention"]
+        M --> N["Add & Norm"]
+        N --> O["Feed Forward Network"]
+        O --> P["Add & Norm"]
+        P --> Q["Decoder Layers 2 to 6"]
+        Q --> R["Linear Layer"]
+        R --> S["Softmax"]
+        S --> T["Next Token Prediction"]
+    end
+
+    H --> M
+    T --> I
+```
+
+**Important:** The six Encoder and Decoder layers represent network depth, not the number of input or output words.
 
 ---
 
-# 3. Input Embeddings and Positional Encoding
+# 3. Tokenization, Embeddings and Positional Encoding
 
-Transformers cannot directly understand words as text. They require numerical representations.
-
-The input sentence first goes through tokenization and embedding.
+Transformers cannot directly understand text. They require numerical representations.
 
 Consider:
 
-`I am a boy`
+```text
+I am a boy
+```
 
-### Step 1: Tokenization
+## 3.1 Tokenization
 
 The sentence is divided into tokens.
-
-Example:
 
 ```text
 ["I", "am", "a", "boy"]
 ```
 
-Each token is mapped to a token ID.
+Each token is mapped to a numerical token ID using a tokenizer.
 
-### Step 2: Token Embeddings
+## 3.2 Token Embeddings
 
 Each token ID is converted into a numerical vector using an embedding layer.
 
-For the original Transformer:
+In the original Transformer:
 
 ```text
 d_model = 512
@@ -125,15 +148,13 @@ Therefore, each token receives a 512-dimensional embedding.
 
 For four tokens:
 
-```text
-Input embedding matrix = 4 × 512
-```
+$$
+X \in \mathbb{R}^{4 \times 512}
+$$
 
-### Step 3: Positional Encoding
+## 3.3 Positional Encoding
 
-One important problem with Transformers is that they process tokens in parallel.
-
-Unlike RNNs, they do not inherently know the order of the tokens.
+Transformers process tokens in parallel and do not inherently understand their order.
 
 For example:
 
@@ -144,34 +165,45 @@ Boy am I a
 
 The order changes the meaning.
 
-To address this, positional information is added to token embeddings.
+To provide positional information, positional encoding is added to token embeddings.
 
-```text
-Final Input Representation =
-Token Embedding + Positional Encoding
-```
+$$
+Input = TokenEmbedding + PositionalEncoding
+$$
 
 The original Transformer uses sinusoidal positional encoding.
 
 For even dimensions:
 
-\[
-PE(pos,2i)=\sin\left(\frac{pos}{10000^{2i/d_{model}}}\right)
-\]
+$$
+PE(pos,2i)=
+\sin\left(
+\frac{pos}{10000^{2i/d_{model}}}
+\right)
+$$
 
 For odd dimensions:
 
-\[
-PE(pos,2i+1)=\cos\left(\frac{pos}{10000^{2i/d_{model}}}\right)
-\]
+$$
+PE(pos,2i+1)=
+\cos\left(
+\frac{pos}{10000^{2i/d_{model}}}
+\right)
+$$
+
+Where:
+
+- `pos` = Position of the token.
+- `i` = Dimension index.
+- `d_model` = Model dimension.
 
 After adding positional encoding:
 
-```text
-Input representation = 4 × 512
-```
+$$
+X \in \mathbb{R}^{4 \times 512}
+$$
 
-Each token now has both semantic and positional information.
+Each token now contains semantic and positional information.
 
 ---
 
@@ -184,31 +216,29 @@ Each Encoder layer contains two main sublayers:
 1. Multi-Head Self-Attention
 2. Feed Forward Network
 
-Each sublayer also uses a residual connection and Layer Normalization.
+Each sublayer is followed by a residual connection and Layer Normalization.
 
-### Encoder Layer Architecture
+### Encoder layer diagram
 
 ```mermaid
 flowchart TD
-    A[Input Representations] --> B[Multi-Head Self-Attention]
-    B --> C[Add & Norm]
-    C --> D[Feed Forward Network]
-    D --> E[Add & Norm]
-    E --> F[Output Representations]
+    A["Input Representations"] --> B["Multi-Head Self-Attention"]
+    B --> C["Add & Norm"]
+    C --> D["Feed Forward Network"]
+    D --> E["Add & Norm"]
+    E --> F["Output Representations"]
 ```
 
-### Detailed explanation
+### Processing flow
 
-1. Input representations are passed to Multi-Head Self-Attention.
+1. Input representations enter Multi-Head Self-Attention.
 2. Attention calculates relationships between tokens.
-3. Add & Norm combines the original input with the attention output and normalizes it.
+3. Add & Norm combines the original input with the attention output.
 4. The result enters the Feed Forward Network.
-5. Add & Norm is applied again.
-6. The resulting representations are passed to the next Encoder layer.
+5. Another Add & Norm is applied.
+6. The output is passed to the next Encoder layer.
 
-After six Encoder layers, we obtain the final contextual representations of the source sentence.
-
-**Important:** The Encoder does not produce one single representation for the entire sentence. It produces one contextual representation for every input token.
+After six Encoder layers, we obtain contextual representations for every source token.
 
 For example:
 
@@ -216,19 +246,19 @@ For example:
 Input: I am a boy
 
 Encoder output:
-Representation of I
-Representation of am
-Representation of a
-Representation of boy
+E1 → Representation of I
+E2 → Representation of am
+E3 → Representation of a
+E4 → Representation of boy
 ```
 
 For four tokens:
 
-```text
-Encoder output = 4 × 512
-```
+$$
+EncoderOutput \in \mathbb{R}^{4 \times 512}
+$$
 
-These representations are supplied to the Decoder's Cross-Attention layers.
+**Important:** The Encoder does not produce one single vector for the entire sentence. It produces one contextual representation per input token.
 
 ---
 
@@ -238,41 +268,47 @@ Self-Attention helps a token understand its relationship with other tokens in th
 
 Consider:
 
-`The boy is playing football because he loves it.`
+```text
+The boy is playing football because he loves it.
+```
 
 To understand the meaning of `he`, the model needs information from `boy`.
 
-Self-Attention allows the model to capture such relationships.
+Self-Attention helps capture such relationships.
 
-### How Self-Attention works
+### How it works
 
-1. Each token is transformed into Query, Key and Value vectors.
+1. Every token is transformed into Query, Key and Value vectors.
 2. Query and Key are used to calculate attention scores.
-3. Softmax converts scores into attention weights.
+3. Softmax converts the scores into attention weights.
 4. Attention weights are multiplied by Value vectors.
-5. The result is a contextual representation for each token.
-
-The attention mechanism determines how much information each token should receive from other tokens.
+5. The result is a contextual representation for every token.
 
 ---
 
 # 6. Query, Key and Value
 
-The attention mechanism uses three important components:
+Attention uses three important components:
 
 - Query (Q)
 - Key (K)
 - Value (V)
 
-They are generated from the input representations using learned weight matrices.
+They are generated from input representations using learned weight matrices.
 
 Let the input representation be `X`.
 
-```text
-Q = X × WQ
-K = X × WK
-V = X × WV
-```
+$$
+Q = XW_Q
+$$
+
+$$
+K = XW_K
+$$
+
+$$
+V = XW_V
+$$
 
 ### Query (Q)
 
@@ -288,13 +324,13 @@ Contains the information that gets combined according to the attention weights.
 
 ### Simple analogy
 
-Imagine searching for a particular book in a library.
+Imagine searching for a book in a library:
 
 - Query: What book am I looking for?
-- Key: Information on each book's catalogue entry.
-- Value: The actual information/content associated with each book.
+- Key: Information in the catalogue used to identify relevant books.
+- Value: The actual information/content associated with the book.
 
-The Query and Key determine relevance, while Value provides the information to retrieve.
+The Query and Key determine relevance, while Value supplies the information to retrieve.
 
 **Important:** Q, K and V are learned transformations of the input representations. They are not simply the original embeddings.
 
@@ -302,66 +338,72 @@ The Query and Key determine relevance, while Value provides the information to r
 
 # 7. Scaled Dot-Product Attention
 
-Once Q, K and V are generated, the attention calculation begins.
+Once Q, K and V are generated, attention calculation begins.
 
 The original Transformer uses Scaled Dot-Product Attention.
 
-### Step 1: Calculate Attention Scores
+### Step 1: Calculate attention scores
 
 Multiply Query with the transpose of Key.
 
-\[
+$$
 Scores = QK^T
-\]
+$$
 
-This measures how much attention each Query assigns to each Key.
+This calculates how much attention each Query assigns to each Key.
 
 ### Step 2: Scaling
 
-The scores are divided by the square root of the Key dimension.
+Divide the scores by the square root of the Key dimension.
 
-\[
+$$
 ScaledScores = \frac{QK^T}{\sqrt{d_k}}
-\]
+$$
 
-Scaling helps prevent excessively large dot-product values that can make Softmax gradients very small.
+Scaling prevents excessively large dot-product values that can make Softmax gradients very small.
 
 ### Step 3: Apply Softmax
 
 Softmax converts the scores into attention weights.
 
-\[
+$$
 AttentionWeights =
-Softmax\left(\frac{QK^T}{\sqrt{d_k}}\right)
-\]
+Softmax\left(
+\frac{QK^T}{\sqrt{d_k}}
+\right)
+$$
 
 Each row of the attention weight matrix sums to 1.
 
 ### Step 4: Multiply by Value
 
-The attention weights are multiplied by the Value matrix.
+Multiply the attention weights with the Value matrix.
 
-\[
+$$
 AttentionOutput =
-Softmax\left(\frac{QK^T}{\sqrt{d_k}}\right)V
-\]
+Softmax\left(
+\frac{QK^T}{\sqrt{d_k}}
+\right)V
+$$
 
-This produces the contextual representation for each token.
+This produces a contextual representation for every token.
 
 ### Complete formula
 
-\[
+$$
 \boxed{
 Attention(Q,K,V)=
-Softmax\left(\frac{QK^T}{\sqrt{d_k}}\right)V
+Softmax\left(
+\frac{QK^T}{\sqrt{d_k}}
+\right)V
 }
-\]
+$$
 
 ### Important distinction
 
 | Operation | Meaning |
 |---|---|
-| \(QK^T\) | Attention scores |
+| `QKᵀ` | Attention scores |
 | Softmax of scores | Attention weights |
 | Attention weights × V | Attention output |
 
@@ -383,7 +425,9 @@ Different heads can learn different relationships between tokens.
 
 For example, in:
 
-`The boy is playing football`
+```text
+The boy is playing football
+```
 
 Different heads may learn to focus on:
 
@@ -394,12 +438,12 @@ Different heads may learn to focus on:
 
 These are possible learned patterns, not fixed rules assigned to individual heads.
 
-### Multi-Head Attention process
+## Multi-Head Attention calculation
 
 Assume:
 
 ```text
-Input tokens = 4
+Number of tokens = 4
 d_model = 512
 Number of heads = 8
 d_head = 64
@@ -409,151 +453,159 @@ Each head receives the same input representation but uses its own learned projec
 
 For each head:
 
-\[
-Q_i=XW_{Q_i}
-\]
+$$
+Q_i = XW_{Q_i}
+$$
 
-\[
-K_i=XW_{K_i}
-\]
+$$
+K_i = XW_{K_i}
+$$
 
-\[
-V_i=XW_{V_i}
-\]
+$$
+V_i = XW_{V_i}
+$$
 
 Each head produces:
 
-```text
-Q = 4 × 64
-K = 4 × 64
-V = 4 × 64
-```
+$$
+Q_i,K_i,V_i \in \mathbb{R}^{4 \times 64}
+$$
 
-### Step-by-step process
+### Step 1: Calculate attention scores
 
-**Step 1:** Each head independently generates Q, K and V.
-
-**Step 2:** Each head calculates attention scores.
-
-\[
-Scores=QK^T
-\]
+$$
+Scores_i = Q_iK_i^T
+$$
 
 For four tokens:
 
-```text
-Attention score matrix = 4 × 4
-```
+$$
+Scores_i \in \mathbb{R}^{4 \times 4}
+$$
 
 Every token's Query is compared with the Keys of the available tokens.
 
-**Step 3:** Apply Softmax to obtain attention weights.
+### Step 2: Calculate attention weights
 
-```text
-Attention weights = 4 × 4
-```
+$$
+Weights_i =
+Softmax\left(
+\frac{Q_iK_i^T}{\sqrt{64}}
+\right)
+$$
 
-**Step 4:** Multiply attention weights with V.
+$$
+Weights_i \in \mathbb{R}^{4 \times 4}
+$$
 
-\[
-Output=AttentionWeights\times V
-\]
+### Step 3: Calculate attention output
 
-```text
-Output of one head = 4 × 64
-```
+$$
+Head_i = Weights_iV_i
+$$
 
-**Step 5:** Concatenate all eight heads.
+$$
+Head_i \in \mathbb{R}^{4 \times 64}
+$$
 
-```text
-8 × (4 × 64)
-```
+### Step 4: Concatenate all heads
 
-The concatenated output becomes:
+$$
+Concat = Concat(Head_1,Head_2,\ldots,Head_8)
+$$
 
-```text
-4 × 512
-```
+$$
+Concat \in \mathbb{R}^{4 \times 512}
+$$
 
-**Step 6:** Apply the final output projection matrix.
+### Step 5: Apply output projection
 
-\[
-MultiHead(Q,K,V)=Concat(head_1,\ldots,head_8)W_O
-\]
+$$
+MultiHead(Q,K,V)=Concat(Head_1,\ldots,Head_8)W_O
+$$
 
 The final output shape remains:
 
-```text
-4 × 512
+$$
+Output \in \mathbb{R}^{4 \times 512}
+$$
+
+### Complete Multi-Head Attention flow
+
+```mermaid
+flowchart TD
+    A["Input X: 4 × 512"] --> B["Learned Q, K, V Projections"]
+    B --> C["Head 1: Attention"]
+    B --> D["Head 2: Attention"]
+    B --> E["..."]
+    B --> F["Head 8: Attention"]
+    C --> G["Concatenate"]
+    D --> G
+    E --> G
+    F --> G
+    G --> H["Output Projection WO"]
+    H --> I["Final Output: 4 × 512"]
 ```
 
-### Important clarification
-
-The original 512-dimensional embedding is not physically split into eight pieces before attention.
-
-Each head uses its own learned projection matrices to produce 64-dimensional Q, K and V vectors.
+**Important clarification:** The original 512-dimensional embedding is not physically split into eight pieces before attention. Each head uses its own learned projection matrices to produce 64-dimensional Q, K and V vectors.
 
 ---
 
-# 9. Add & Layer Normalization
+# 9. Residual Connections and Layer Normalization
 
 After Multi-Head Attention, the Transformer uses a residual connection followed by Layer Normalization.
 
-This is commonly called Add & Norm.
+This is called Add & Norm.
 
-### Why do we add the original input?
+## Why add the original input?
 
-Consider:
+Let:
 
-```text
-Original input = X
-Attention output = Attention(X)
-```
+- `X` = Original input.
+- `Attention(X)` = Contextual information obtained from attention.
 
-The attention output contains contextual information gathered from other tokens.
+The residual addition is:
 
-The original input contains the token's initial information and positional information.
+$$
+Y = X + Attention(X)
+$$
 
-We add both:
+The original input contains initial token and positional information, while the attention output contains contextual information gathered from other tokens.
 
-\[
-Y=X+Attention(X)
-\]
-
-This is called a residual connection or skip connection.
+Adding them helps preserve a direct path for the original information.
 
 ### Benefits of residual connections
 
-1. Preserve a direct path for the original input information.
+1. Preserve a direct path for original input information.
 2. Help gradients flow through deep networks.
 3. Make deeper architectures easier to train.
 
-### Layer Normalization
+## Layer Normalization
 
 After addition, Layer Normalization is applied.
 
-\[
-Output=LayerNorm(X+Attention(X))
-\]
+$$
+Output = LayerNorm(X + Attention(X))
+$$
 
 Layer Normalization normalizes feature values for each token across its hidden dimensions.
 
 It uses learnable parameters:
 
-- Gamma (\(\gamma\)): Scale
-- Beta (\(\beta\)): Shift
+- Gamma (γ): Scale.
+- Beta (β): Shift.
 
-Its purpose is to stabilize the distribution of activations and improve training.
+Its purpose is to stabilize activation distributions and improve training.
 
-**Important distinction:**
+### Important distinction
 
 - Residual connection adds the original input.
 - Layer Normalization normalizes feature values.
-- Softmax converts attention scores into probability-like attention weights.
+- Softmax converts attention scores into attention weights.
 
 They perform different operations.
 
-The original Transformer uses Post-Layer Normalization, meaning normalization happens after the residual addition.
+The original Transformer uses Post-Layer Normalization, meaning normalization happens after residual addition.
 
 ---
 
@@ -569,23 +621,23 @@ Unlike Self-Attention, it does not directly mix information between different to
 
 The original Transformer uses two linear transformations with a ReLU activation in between.
 
-\[
+$$
 FFN(x)=max(0,xW_1+b_1)W_2+b_2
-\]
+$$
 
 ### Original dimensions
 
 ```text
-Input dimension = 512
+Input dimension  = 512
 Hidden dimension = 2048
 Output dimension = 512
 ```
 
 The processing is:
 
-```text
-512 → 2048 → ReLU → 512
-```
+$$
+512 \rightarrow 2048 \rightarrow ReLU \rightarrow 512
+$$
 
 ### Why use FFN?
 
@@ -595,40 +647,40 @@ The Feed Forward Network further transforms the resulting token representations 
 
 After the FFN, another residual connection and Layer Normalization are applied.
 
-\[
-Output=LayerNorm(X+FFN(X))
-\]
+$$
+Output = LayerNorm(X + FFN(X))
+$$
 
-Here, X represents the input to that FFN sublayer.
+Here, `X` represents the input to that FFN sublayer.
 
 ### Complete Encoder layer
 
 ```mermaid
 flowchart TD
-    A[Input Representations] --> B[Multi-Head Self-Attention]
-    B --> C[Residual Addition]
+    A["Input X"] --> B["Multi-Head Self-Attention"]
+    B --> C["Add: X + Attention Output"]
     A --> C
-    C --> D[Layer Normalization]
-    D --> E[Feed Forward Network]
-    E --> F[Residual Addition]
+    C --> D["Layer Normalization"]
+    D --> E["Feed Forward Network"]
+    E --> F["Add: FFN Input + FFN Output"]
     D --> F
-    F --> G[Layer Normalization]
-    G --> H[Output Representations]
+    F --> G["Layer Normalization"]
+    G --> H["Output Representations"]
 ```
 
 ---
 
 # 11. Decoder Architecture
 
-The Decoder is responsible for generating the target sequence.
+The Decoder generates the target sequence.
 
 The original Transformer contains six Decoder layers.
 
 Unlike the Encoder, each Decoder layer contains three main sublayers:
 
-1. Masked Multi-Head Self-Attention
-2. Encoder–Decoder Cross-Attention
-3. Feed Forward Network
+1. Masked Multi-Head Self-Attention.
+2. Encoder–Decoder Cross-Attention.
+3. Feed Forward Network.
 
 Each sublayer uses Add & Norm.
 
@@ -636,19 +688,19 @@ Each sublayer uses Add & Norm.
 
 ```mermaid
 flowchart TD
-    A[Target Input Embeddings + Positional Encoding] --> B[Masked Multi-Head Self-Attention]
-    B --> C[Add & Norm]
-    C --> D[Cross-Attention]
-    D --> E[Add & Norm]
-    E --> F[Feed Forward Network]
-    F --> G[Add & Norm]
-    G --> H[Output Representations]
+    A["Target Input Embeddings + Positional Encoding"] --> B["Masked Multi-Head Self-Attention"]
+    B --> C["Add & Norm"]
+    C --> D["Cross-Attention"]
+    D --> E["Add & Norm"]
+    E --> F["Feed Forward Network"]
+    F --> G["Add & Norm"]
+    G --> H["Output Representations"]
 ```
 
 The Decoder has two different attention mechanisms:
 
-- Masked Self-Attention: Looks at available target tokens.
-- Cross-Attention: Uses information from the Encoder's output.
+- **Masked Self-Attention:** Looks at available target tokens.
+- **Cross-Attention:** Uses information from the Encoder's output.
 
 ---
 
@@ -664,11 +716,11 @@ Consider the target sentence:
 Je suis un garçon
 ```
 
-During training, the Decoder receives a shifted version of the target sequence:
+During training, the Decoder receives a shifted version of the target sequence.
 
 ```text
-Input:    BOS  Je   suis  un
-Expected: Je   suis un    garçon
+Decoder input:   BOS   Je   suis   un
+Expected output: Je    suis un     garçon
 ```
 
 The model must predict the next token at every position.
@@ -677,20 +729,16 @@ If the first position can access all future tokens, it could directly see the an
 
 This would cause information leakage during training.
 
-### Causal Masking
+### Causal masking
 
 The causal mask prevents a token from attending to future positions.
 
-For example:
-
-```text
-                 BOS   Je   suis   un
-
-BOS               ✓     ✗     ✗     ✗
-Je                ✓     ✓     ✗     ✗
-suis              ✓     ✓     ✓     ✗
-un                ✓     ✓     ✓     ✓
-```
+| Query position | BOS | Je | suis | un |
+|---|---:|---:|---:|---:|
+| BOS | ✓ | ✗ | ✗ | ✗ |
+| Je | ✓ | ✓ | ✗ | ✗ |
+| suis | ✓ | ✓ | ✓ | ✗ |
+| un | ✓ | ✓ | ✓ | ✓ |
 
 The first token can only attend to itself.
 
@@ -700,7 +748,7 @@ The second token can attend to BOS and Je, but cannot access suis or un.
 
 It ensures that the Decoder learns to predict the next token using only previously available target tokens.
 
-During inference, future tokens do not exist yet. However, the causal attention mechanism remains part of the Decoder architecture.
+During inference, future tokens do not exist yet. However, causal masking remains part of the Decoder architecture.
 
 ---
 
@@ -721,7 +769,7 @@ The Encoder processes the English sentence and produces contextual representatio
 
 These representations are passed to the Cross-Attention layer in the Decoder.
 
-### Where do Q, K and V come from?
+## Where do Q, K and V come from?
 
 This is one of the most important distinctions in the Transformer architecture.
 
@@ -740,17 +788,17 @@ Encoder output = E
 
 The Cross-Attention layer creates:
 
-\[
-Q=DW_Q
-\]
+$$
+Q = DW_Q
+$$
 
-\[
-K=EW_K
-\]
+$$
+K = EW_K
+$$
 
-\[
-V=EW_V
-\]
+$$
+V = EW_V
+$$
 
 The Encoder does not directly send separately calculated K and V matrices for Cross-Attention.
 
@@ -758,12 +806,30 @@ It sends its final contextual representations. The Cross-Attention layer transfo
 
 ### Cross-Attention calculation
 
-Once Q, K and V are generated, the same Scaled Dot-Product Attention formula is used:
+Once Q, K and V are generated, the same Scaled Dot-Product Attention formula is used.
 
-\[
+$$
 Attention(Q,K,V)=
-Softmax\left(\frac{QK^T}{\sqrt{d_k}}\right)V
-\]
+Softmax\left(
+\frac{QK^T}{\sqrt{d_k}}
+\right)V
+$$
+
+### Cross-Attention diagram
+
+```mermaid
+flowchart TD
+    A["Encoder Final Representations"] --> B["Linear Projection WK"]
+    A --> C["Linear Projection WV"]
+    D["Decoder Representation"] --> E["Linear Projection WQ"]
+    B --> F["Key K"]
+    C --> G["Value V"]
+    E --> H["Query Q"]
+    F --> I["Scaled Dot-Product Attention"]
+    G --> I
+    H --> I
+    I --> J["Cross-Attention Output"]
+```
 
 ### Understanding with a translation example
 
@@ -798,19 +864,27 @@ For example, when generating the first French token, the Decoder uses Cross-Atte
 
 ### Attention differences
 
-**Encoder Self-Attention:**
+**Encoder Self-Attention**
 
 Q, K and V are all generated from Encoder representations.
 
-\[
-Q=XW_Q,\quad K=XW_K,\quad V=XW_V
-\]
+$$
+Q=XW_Q
+$$
 
-**Decoder Masked Self-Attention:**
+$$
+K=XW_K
+$$
+
+$$
+V=XW_V
+$$
+
+**Decoder Masked Self-Attention**
 
 Q, K and V are generated from Decoder representations, with causal masking applied to prevent access to future target tokens.
 
-**Decoder Cross-Attention:**
+**Decoder Cross-Attention**
 
 Q comes from Decoder representations, while K and V come from Encoder representations.
 
@@ -820,16 +894,16 @@ Q comes from Decoder representations, while K and V come from Encoder representa
 
 Training and inference are two different phases of the Transformer.
 
-## Training Phase
-
-During training, both the source sentence and the correct target sentence are available.
-
-Example:
+Consider the translation task:
 
 ```text
 English: I am a boy
 French:  Je suis un garçon
 ```
+
+## 15.1 Training Phase
+
+During training, both the source sentence and the correct target sentence are available.
 
 ### Encoder input
 
@@ -844,39 +918,41 @@ The Encoder processes the entire English sentence and produces contextual repres
 The correct French sentence is shifted right by one position.
 
 ```text
-Decoder input:  BOS Je suis un
-Expected output: Je  suis un garçon
+Decoder input:   BOS   Je   suis   un
+Expected output: Je    suis un     garçon
 ```
 
-This approach is called Teacher Forcing.
+This approach is called **Teacher Forcing**.
 
 The Decoder uses Masked Self-Attention, Cross-Attention and FFN to generate predictions.
 
 ### Loss calculation
 
-The predicted tokens are compared with the correct target tokens using a loss function, commonly cross-entropy loss.
+Predicted tokens are compared with the correct target tokens using a loss function, commonly cross-entropy loss.
 
-The loss is used for backpropagation to update the trainable weights of the Encoder and Decoder.
+$$
+Loss = CrossEntropy(Predictions, TargetTokens)
+$$
+
+The loss is used for backpropagation to update the trainable weights of both the Encoder and Decoder.
+
+### Training flow
 
 ```mermaid
 flowchart TD
-    A[English Source Sentence] --> B[Encoder]
-    C[Shifted French Target] --> D[Decoder]
+    A["English Source Sentence"] --> B["Encoder"]
+    C["Shifted French Target"] --> D["Decoder"]
     B --> D
-    D --> E[Predicted Target Tokens]
-    E --> F[Loss Calculation]
-    G[Correct French Target] --> F
-    F --> H[Backpropagation]
-    H --> I[Update Model Parameters]
+    D --> E["Predicted Target Tokens"]
+    E --> F["Loss Calculation"]
+    G["Correct French Target"] --> F
+    F --> H["Backpropagation"]
+    H --> I["Update Model Parameters"]
 ```
 
-## Inference Phase
+## 15.2 Inference Phase
 
 During inference, we only provide the source sentence.
-
-We do not provide the correct target sentence.
-
-For example:
 
 ```text
 Input: I am a boy
@@ -888,7 +964,17 @@ The Decoder initially receives only the BOS token.
 
 It generates the output one token at a time.
 
-No target sentence is supplied, and the model's weights are not updated.
+No correct target sentence is supplied, and the model's weights are not updated.
+
+### Main differences
+
+| Training | Inference |
+|---|---|
+| Source and target sentences are available | Only source sentence is provided |
+| Decoder receives shifted correct target tokens | Decoder receives BOS and its own generated tokens |
+| Predictions are compared with correct targets | Predictions are used to generate the sequence |
+| Loss and backpropagation update weights | No weight updates |
+| All target positions can be processed in parallel with causal masking | Generation is autoregressive |
 
 ---
 
@@ -896,21 +982,16 @@ No target sentence is supplied, and the model's weights are not updated.
 
 Autoregressive generation means that the model predicts one token at a time and uses previously generated tokens to predict subsequent tokens.
 
-Let's understand this using our translation example.
+Let's use our translation example.
 
 ```text
 English: I am a boy
-```
-
-Expected French translation:
-
-```text
-Je suis un garçon
+Expected French: Je suis un garçon
 ```
 
 ### Step 1: First prediction
 
-Decoder input:
+Initially, the Decoder receives:
 
 ```text
 BOS
@@ -918,11 +999,11 @@ BOS
 
 The token passes through all six Decoder layers.
 
-The Decoder uses:
+The processing includes:
 
-1. Masked Self-Attention
-2. Cross-Attention
-3. Feed Forward Network
+1. Masked Self-Attention.
+2. Cross-Attention.
+3. Feed Forward Network.
 
 The final Decoder representation is sent to Linear + Softmax.
 
@@ -990,8 +1071,6 @@ Every generated token passes through all six Decoder layers.
 
 The six layers represent the depth of the network, not the number of tokens it can generate.
 
-For example:
-
 | Generation step | Decoder input | Output prediction |
 |---|---|---|
 | 1 | BOS | Je |
@@ -1018,9 +1097,9 @@ Vocabulary size = 30,000
 
 The Linear layer transforms:
 
-```text
-512 → 30,000
-```
+$$
+512 \rightarrow 30000
+$$
 
 The resulting values are called logits.
 
@@ -1028,9 +1107,10 @@ The resulting values are called logits.
 
 Softmax converts logits into probabilities.
 
-\[
-Softmax(z_i)=\frac{e^{z_i}}{\sum_j e^{z_j}}
-\]
+$$
+Softmax(z_i)=
+\frac{e^{z_i}}{\sum_j e^{z_j}}
+$$
 
 Example:
 
@@ -1045,7 +1125,10 @@ The model then selects a token according to its decoding strategy.
 
 The selected token is appended to the Decoder input for the next generation step.
 
-**Important:** During inference, the final representation at the last available Decoder position is used to predict the next token. During training, predictions are produced for all target positions in parallel.
+**Important:**
+
+- During inference, the final representation at the last available Decoder position is used to predict the next token.
+- During training, predictions are produced for all target positions in parallel.
 
 ---
 
@@ -1060,10 +1143,210 @@ English: I am a boy
 French:  Je suis un garçon
 ```
 
-### Complete architecture
+### Complete translation flow
 
 ```mermaid
 flowchart TD
-    A[English Input: I am a boy] --> B[Tokenization]
-    B --> C[Embedding + Positional Encoding]
-    C --> D[Encoder Layer 
+    A["English Input: I am a boy"] --> B["Tokenization"]
+    B --> C["Embedding + Positional Encoding"]
+    C --> D["Encoder Layer 1"]
+    D --> E["Encoder Layer 2"]
+    E --> F["Encoder Layers 3 to 6"]
+    F --> G["Encoder Contextual Representations"]
+
+    H["Decoder Input: BOS"] --> I["Masked Multi-Head Self-Attention"]
+    I --> J["Add & Norm"]
+    G --> K["Cross-Attention: K and V"]
+    J --> K
+    K --> L["Add & Norm"]
+    L --> M["Feed Forward Network"]
+    M --> N["Add & Norm"]
+    N --> O["Decoder Layers 2 to 6"]
+    O --> P["Linear + Softmax"]
+    P --> Q["Next Token Prediction"]
+    Q --> R["Append Generated Token"]
+    R --> H
+```
+
+### Complete flow in simple words
+
+1. The English sentence enters the Encoder.
+2. Tokenization converts the sentence into tokens.
+3. Embedding converts token IDs into numerical representations.
+4. Positional Encoding adds positional information.
+5. The Encoder processes the sentence through six Encoder layers.
+6. The Encoder produces contextual representations for every input token.
+7. The Decoder initially receives BOS.
+8. Masked Self-Attention processes the available target tokens.
+9. Cross-Attention uses the Decoder's Query and the Encoder's Key and Value representations.
+10. The result passes through the Feed Forward Network.
+11. This process continues through all six Decoder layers.
+12. The final Decoder representation is passed through Linear and Softmax.
+13. The next token is predicted.
+14. The generated token is appended to the Decoder input.
+15. The process repeats until EOS is generated.
+
+---
+
+# 19. Important Dimensions and Shapes
+
+Let's assume:
+
+```text
+Input sentence: I am a boy
+Number of tokens: 4
+d_model: 512
+Number of attention heads: 8
+d_head: 64
+FFN hidden dimension: 2048
+```
+
+## Encoder dimensions
+
+| Operation | Shape |
+|---|---|
+| Token embeddings | 4 × 512 |
+| Positional Encoding | 4 × 512 |
+| Final input representation | 4 × 512 |
+| Q, K, V for one head | 4 × 64 |
+| Attention scores for one head | 4 × 4 |
+| Attention weights for one head | 4 × 4 |
+| Output of one head | 4 × 64 |
+| Concatenated heads | 4 × 512 |
+| Output projection | 4 × 512 |
+| FFN hidden representation | 4 × 2048 |
+| FFN output | 4 × 512 |
+| Final Encoder output | 4 × 512 |
+
+## Decoder dimensions during inference
+
+Assuming the same hidden dimension:
+
+| Generation step | Decoder input shape | Final Decoder representation |
+|---|---|---|
+| 1 | 1 × 512 | 1 × 512 |
+| 2 | 2 × 512 | 2 × 512 |
+| 3 | 3 × 512 | 3 × 512 |
+| 4 | 4 × 512 | 4 × 512 |
+
+During inference, the final position's representation is used for the next-token prediction.
+
+For example, at step 3, the Decoder has three target positions. The third position's final representation is used to predict the fourth token.
+
+**Note:** These dimensions describe the conceptual Transformer computation. Efficient implementations may use batching, caching and other optimizations.
+
+---
+
+# 20. Important Formulas – Quick Revision
+
+### Token representation
+
+$$
+Input = TokenEmbedding + PositionalEncoding
+$$
+
+### Query, Key and Value
+
+$$
+Q=XW_Q
+$$
+
+$$
+K=XW_K
+$$
+
+$$
+V=XW_V
+$$
+
+### Scaled Dot-Product Attention
+
+$$
+Attention(Q,K,V)=
+Softmax\left(
+\frac{QK^T}{\sqrt{d_k}}
+\right)V
+$$
+
+### Multi-Head Attention
+
+$$
+MultiHead(Q,K,V)=
+Concat(head_1,\ldots,head_h)W_O
+$$
+
+### Feed Forward Network
+
+$$
+FFN(x)=max(0,xW_1+b_1)W_2+b_2
+$$
+
+### Residual Connection + Layer Normalization
+
+$$
+Output=LayerNorm(X+Sublayer(X))
+$$
+
+### Cross-Attention
+
+$$
+Q=DecoderOutput \times W_Q
+$$
+
+$$
+K=EncoderOutput \times W_K
+$$
+
+$$
+V=EncoderOutput \times W_V
+$$
+
+### Softmax
+
+$$
+Softmax(z_i)=\frac{e^{z_i}}{\sum_j e^{z_j}}
+$$
+
+---
+
+# Final Revision Summary
+
+| Component | Main responsibility |
+|---|---|
+| Tokenization | Converts text into tokens and token IDs |
+| Embedding | Converts token IDs into vectors |
+| Positional Encoding | Adds information about token positions |
+| Self-Attention | Captures relationships between tokens |
+| Query | Represents what information is being searched for |
+| Key | Helps determine relevance |
+| Value | Supplies information to be combined |
+| Softmax | Converts attention scores into attention weights |
+| Multi-Head Attention | Performs attention through multiple learned heads |
+| Residual Connection | Adds the original input to the sublayer output |
+| Layer Normalization | Normalizes feature values |
+| Feed Forward Network | Further transforms each token representation |
+| Masked Self-Attention | Prevents access to future target tokens |
+| Cross-Attention | Connects Decoder representations with Encoder representations |
+| Linear Layer | Projects hidden representations to vocabulary logits |
+| Softmax | Converts logits into token probabilities |
+| EOS | Signals the end of generation |
+
+## Final Takeaway
+
+The Encoder understands the source sentence and generates contextual representations.
+
+The Decoder generates the target sentence by combining information from previously generated target tokens and the Encoder's output.
+
+- Self-Attention captures relationships within a sequence.
+- Masked Self-Attention prevents access to future target tokens.
+- Cross-Attention connects the source and target sequences.
+- The Feed Forward Network further transforms token representations.
+- Linear and Softmax produce probabilities for the next token.
+
+The entire process continues until the Decoder produces an End of Sequence token.
+
+---
+
+**Learning status:** Original Encoder–Decoder Transformer architecture — Conceptual understanding completed.
+
+**Next topics:** Consolidate positional encoding, tokenization, embeddings, training objectives and decoding strategies before moving to Encoder-only, Decoder-only and other Transformer variations.
