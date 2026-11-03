@@ -119,10 +119,3 @@ Imagine a pedestrian suddenly crossing the road.
 | Accountability | Air Canada chatbot incident | Take responsibility for AI decisions |
 | Safety | Waymo autonomous vehicles | Ensure safe and reliable operation |
 
-## 4. Important KT Question
-
-**Q: Why is Responsible AI important?**
-
-Responsible AI ensures that AI systems are not only accurate but also fair, transparent, secure, accountable, and safe. It helps build user trust, protects personal information, prevents discrimination, and reduces the risk of AI systems causing harm.
-
-**Final takeaway:** Responsible AI is not a single algorithm or technique. It is a collection of principles and practices followed throughout the AI development and deployment lifecycle.
