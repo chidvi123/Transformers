@@ -67,16 +67,13 @@ Large language models may contain billions of parameters. Updating all of them r
 
 PEFT keeps most original model weights frozen and trains only a small set of additional or selected parameters.
 
-### Popular PEFT Techniques
+### Techniques Covered
 
 | Technique | Description |
 |---|---|
 | LoRA | Adds small trainable matrices to selected model layers |
 | QLoRA | Combines LoRA with quantization |
 | AdaLoRA | Dynamically allocates LoRA rank based on importance |
-| Adapters | Adds small trainable modules between Transformer layers |
-| Prompt Tuning | Learns trainable prompt embeddings |
-| Prefix Tuning | Learns trainable prefix representations for attention |
 
 ---
 
@@ -138,16 +135,21 @@ For a 100 × 100 weight matrix and rank 2:
 
 Although BA produces a 100 × 100 matrix, its 10,000 values are generated from only 400 independently trainable parameters.
 
-### Where is LoRA applied?
+### Where is LoRA Applied?
 
-It can be applied to Transformer weight matrices such as:
+It can be applied to selected Transformer weight matrices such as:
 - Query (Q)
 - Key (K)
 - Value (V)
 - Output (O)
-- Feed-Forward Network (FFN) projections
 
-The exact target matrices depend on the model and configuration.
+### Training Process
+
+1. Pass input through the pretrained model.
+2. Calculate the task-specific loss.
+3. Perform backpropagation.
+4. Update the LoRA matrices A and B.
+5. Keep the original pretrained weights frozen.
 
 ### Advantages
 
@@ -192,17 +194,17 @@ Where:
 
 ### Important QLoRA Components
 
-**1. NF4 (4-bit NormalFloat)**
+**A. NF4 (4-bit NormalFloat)**
 
 A 4-bit quantization format designed for normally distributed neural network weights.
 
-**2. Double Quantization**
+**B. Double Quantization**
 
 Quantizes the quantization constants themselves to further reduce memory usage.
 
-**3. Paged Optimizers**
+**C. Paged Optimizers**
 
-Help manage optimizer memory spikes by using paged memory management.
+Help manage optimizer memory spikes through paged memory management.
 
 **Important:** QLoRA mainly quantizes the frozen pretrained base model. LoRA adapters are generally maintained in higher precision for training. Activations, gradients and optimizer states have their own precision and memory requirements.
 
@@ -221,9 +223,9 @@ Help manage optimizer memory spikes by using paged memory management.
 
 AdaLoRA is an extension of LoRA that dynamically allocates rank across different model weight matrices based on their importance during training.
 
-### Why do we need AdaLoRA?
+### A. Why Do We Need AdaLoRA?
 
-In normal LoRA, we generally select a fixed rank before training.
+In standard LoRA, we generally select a fixed rank before training.
 
 For example, suppose we select rank 8 for all four Transformer attention matrices:
 
@@ -235,13 +237,13 @@ For example, suppose we select rank 8 for all four Transformer attention matrice
 | Output (O) | 8 |
 | Total | 32 |
 
-However, not every matrix or low-rank component requires the same amount of adaptation.
+However, not every matrix requires the same amount of adaptation.
 
-Some components may contribute more to the new task, while others may contribute very little.
+Some low-rank components may contribute more to the new task, while others may contribute very little.
 
 AdaLoRA solves this by dynamically allocating the available rank budget based on component importance.
 
-### A. Mathematical Working
+### B. Mathematical Working
 
 Standard LoRA represents the weight update using two low-rank matrices:
 
@@ -249,10 +251,9 @@ $$\Delta W = BA$$
 
 AdaLoRA uses an SVD-inspired decomposition:
 
-$$\Delta W = P\Lambda Q$$
+$$\Delta W = P\Lambda Q^T$$
 
 Where:
-
 - P = Left low-rank factor.
 - Λ = Diagonal matrix containing singular-value-like components.
 - Q = Right low-rank factor.
@@ -263,11 +264,11 @@ $$P \in \mathbb{R}^{d_{out}\times r}$$
 
 $$\Lambda \in \mathbb{R}^{r\times r}$$
 
-$$Q \in \mathbb{R}^{r\times d_{in}}$$
+$$Q^T \in \mathbb{R}^{r\times d_{in}}$$
 
 The diagonal components in Λ play an important role because AdaLoRA estimates their importance and can prune less important components.
 
-### B. Importance Estimation
+### C. Importance Estimation
 
 During training, AdaLoRA estimates how important individual low-rank components are to the task.
 
@@ -285,15 +286,15 @@ Where:
 - L = Training loss.
 - ∂L/∂λᵢ = Gradient of the loss with respect to that component.
 
-This gives an indication of how much a component matters to the training objective.
+This estimates how much a component matters to the training objective.
 
-AdaLoRA uses importance estimates and their moving averages and uncertainty to make more stable rank allocation decisions.
+AdaLoRA uses importance estimates, including their moving averages and uncertainty, to make more stable rank allocation decisions.
 
-### C. Adaptive Rank Allocation
+### D. Adaptive Rank Allocation
 
 The main idea is to retain more important components and prune less important ones.
 
-Consider an illustrative example:
+Consider an illustrative example.
 
 Initially, each selected attention matrix receives rank 8.
 
@@ -326,7 +327,7 @@ What happened?
 
 **Important:** AdaLoRA does not simply check which Q, K or V matrix produces the correct answer. It estimates the importance of individual low-rank components using training information such as gradients and component magnitude.
 
-### D. Overall Training Process
+### E. Overall Training Process
 
 1. Initialize the low-rank factors.
 2. Perform forward propagation.
@@ -348,3 +349,20 @@ This process progressively adapts the rank allocation during training.
 | Simpler parameter allocation | Importance-based parameter allocation |
 
 **Key Takeaway:** LoRA uses a generally fixed rank, whereas AdaLoRA identifies important low-rank components and dynamically allocates the available parameter budget to them.
+
+---
+
+## 8. Overall Comparison
+
+| Technique | Main Idea |
+|---|---|
+| Transfer Learning | Reuse knowledge from a pretrained model |
+| Feature Extraction | Freeze pretrained layers and train a new head |
+| Full Fine-Tuning | Update all pretrained weights |
+| Partial Fine-Tuning | Update selected pretrained layers |
+| Gradual Unfreezing | Progressively unfreeze layers |
+| Discriminative Fine-Tuning | Use different learning rates for different layers |
+| PEFT | Efficiently adapt a model using fewer trainable parameters |
+| LoRA | Learn low-rank weight updates |
+| QLoRA | Combine LoRA with quantization |
+| AdaLoRA | Dynamically allocate LoRA rank |
